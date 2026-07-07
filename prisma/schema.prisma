@@ -43,6 +43,7 @@ model Workspace {
 
   onboarding  OnboardingProfile?
   sprints     Sprint[]
+  blocks      Block[]
   tasks       Task[]
 
   @@index([ownerUserId])
@@ -85,16 +86,21 @@ model Sprint {
 }
 
 model Block {
-  id        String   @id @default(cuid())
-  sprintId  String
-  sprint    Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  title     String
-  date      DateTime
-  startTime DateTime
-  endTime   DateTime
+  id          String    @id @default(cuid())
+  // Denormalized tenant key (founder-approved) so $extends isolation can filter
+  // Block in a single `where` without a Sprint join. Kept consistent with sprint.workspaceId.
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sprintId    String
+  sprint      Sprint    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  title       String
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
 
   tasks Task[]
 
+  @@index([workspaceId])
   @@index([sprintId])
 }
 

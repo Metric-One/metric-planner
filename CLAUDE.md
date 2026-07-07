@@ -192,29 +192,40 @@ Deploy: static Vite build → **Vercel** (frontend-only, per Part 3 layer 5).
 merge to `main` (note: auto-deploy on merge conflicts with the Part-4
 "human-gated deploy" principle — flag for the founder if that gate matters here).
 
-## CURRENT REALITY — module status (updated 2026-07-05, Day 1)
+## CURRENT REALITY — module status (updated 2026-07-07, Day 2)
 
 | Area | Status |
 |---|---|
 | Coming-soon teaser | ✅ done, deployed |
-| Signal v1.0 tokens/fonts | ✅ **applied** — `:root`/`.dark` retokenized; dark = Navy `#0B1B3A` / Ink `#0A0E17` (no OLED black); fonts = Space Grotesk + IBM Plex Sans + IBM Plex Mono |
-| Router (React Router 6) | ✅ added — `/` Landing, `/onboarding`, `*`→`/` |
-| State (Zustand 5) | ✅ added — `src/shared/stores/onboardingStore.js` (local only; write flags FALSE) |
-| 10-question onboarding | 🟡 **shell only** — 10 locked questions captured to local state; no plan gen, no persistence |
-| Planner data model | 🟡 **schema defined, NOT migrated** — `prisma/schema.prisma` (Workspace, OnboardingProfile, Sprint, Block, Task); awaiting founder review |
-| Sprint/Block/Task UI + drag-drop calendar | ❌ not started (Week 2, after schema + onboarding approved) |
+| Signal v1.0 tokens/fonts | ✅ applied — dark = Navy `#0B1B3A` / Ink `#0A0E17`; Space Grotesk + IBM Plex Sans + IBM Plex Mono |
+| Router (React Router 6) | ✅ `/` Landing, `/onboarding`, `*`→`/` |
+| State (Zustand 5) | ✅ `src/shared/stores/onboardingStore.js` (local only; write flags FALSE) |
+| 10-question onboarding | 🟡 shell only — captured to local state; no plan gen, no persistence |
+| Planner data model | ✅ **migrated** — `prisma/migrations/20260707073707_init_planner`; 5 tables live in Postgres `metric_planner` |
+| `Block.workspaceId` | ✅ **denormalized** (founder-approved), indexed + FK to Workspace |
+| Tenant isolation (`$extends`) | ✅ **wired** — `server/db/tenant.js` `forWorkspace()` throws on any unscoped tenant query (shared primitive) |
+| Sprint/Block/Task UI + drag-drop calendar | ❌ not started (Day 3+, after isolation is proven with a test) |
+| Onboarding backend persistence | ❌ not started (Day 3) |
 | Auth | ❌ none |
-| Backend / API (Express) | ❌ none (stub only; Prisma deps not installed yet — Day 2 does install + generate + migrate) |
-| Is any of this V1-blocking? | ❓ **open founder decision** — Part 2 does not list the planner as V1 |
+| Backend / API (Express) | ❌ none yet — only `server/db/` (client + tenant guard) exists |
+| Is any of this V1-blocking? | ❓ open founder decision — Part 2 does not list the planner as V1 |
+
+### DB / backend facts (Day 2)
+- **Postgres:** reuses the shared `metrics_postgres` container (superuser `metrics`), separate database **`metric_planner`**. Local `DATABASE_URL` lives in `.env` (gitignored); `.env.example` carries a placeholder.
+- **Prisma:** `prisma` + `@prisma/client` `6.19.3` (pnpm build scripts allow-listed in `pnpm-workspace.yaml`). Migrations are committed; run `corepack pnpm exec prisma migrate dev` to sync a fresh DB.
+- **Isolation contract:** import `forWorkspace(workspaceId)` from `server/db/tenant.js` for ALL tenant-model access. Use the raw `prisma` (from `server/db/prisma.js`) only for non-tenant models. `server/` is deliberately outside `src/` so Vite never bundles backend code.
+
+### Day 2 log — 2026-07-07
+- **Schema:** `Block.workspaceId` added (indexed, FK, `onDelete: Cascade`) — the
+  approved denormalization so `$extends` filters Block without a Sprint join.
+- **First migration:** `20260707073707_init_planner` applied to a fresh empty DB
+  (create-only; no data endangered). Client generated (Prisma 6.19.3).
+- **Tenant isolation:** `server/db/{prisma.js,tenant.js}` — `forWorkspace()`
+  `$extends` guard: auto-scopes filter ops, stamps creates, forbids by-PK ops on
+  tenant models, throws otherwise.
+- **Hygiene:** `.vercel/` was accidentally committed on Day 1 → now gitignored + untracked.
+- **Hard stop honored:** no persistence wiring, no Sprint/Block/Task UI. Day 3 = prove isolation with a test, then build persistence.
 
 ### Day 1 log — 2026-07-05
-- **Brand fix:** Signal v1.0 tokens + fonts applied across `index.css`,
-  `tailwind.config.js`, `index.html` (incl. dark `theme-color` → Navy). Build 0 errors.
-- **Scaffold:** added `react-router-dom@6`, `zustand@5`; onboarding route shell
-  with the 10 locked questions; answers → local Zustand; all write flags FALSE.
-- **Schema:** authored `prisma/schema.prisma` (multi-tenant, workspace-scoped) +
-  `DATABASE_URL` in `.env.example`. **No migrate run** — pending schema review.
-- **Deferred to Day 2+ (hard stop honored):** no Sprint/Block/Task UI, no
-  drag-drop calendar, no backend persistence, no `prisma migrate`.
-- **Open for review:** Block is only *transitively* tenant-scoped (via Sprint);
-  see the FK note — decide whether to denormalize `workspaceId` onto Block.
+- Signal v1.0 tokens + fonts; router + zustand + 10-question onboarding shell
+  (local, write flags FALSE); authored `prisma/schema.prisma` (not yet migrated).
