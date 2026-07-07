@@ -1,0 +1,117 @@
+// Metric One — AI Planner · V1 data model (LOCKED for review; NOT migrated yet).
+// Stack: Prisma + PostgreSQL 16 (locked). Multi-tenant from day 1: every
+// tenant-scoped row carries workspaceId so the same Prisma $extends isolation
+// pattern used in metric-App can be applied here later.
+//
+// DO NOT run `prisma migrate dev` against this until the founder approves the
+// schema. `prisma generate` / migrations land Day 2.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums (small, fixed, reused in app logic) ───────────────────────────────
+enum Role {
+  SOLO_FOUNDER
+  AGENCY
+  TEAM_LEADER
+}
+
+enum Tier {
+  FREE
+  PRO
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+// ── Tenant root ─────────────────────────────────────────────────────────────
+model Workspace {
+  id          String   @id @default(cuid())
+  ownerUserId String
+  role        Role
+  tier        Tier     @default(FREE)
+  createdAt   DateTime @default(now())
+
+  onboarding  OnboardingProfile?
+  sprints     Sprint[]
+  tasks       Task[]
+
+  @@index([ownerUserId])
+}
+
+// ── The 10 locked onboarding answers (editable after creation) ──────────────
+model OnboardingProfile {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  role             Role     // Q1  Solo Founder / Agency / Team Leader
+  northStar        String   // Q2  Revenue / User Acquisition / Product Launch / other
+  growthChannel    String   // Q3  LinkedIn / Google Ads / SEO / Cold Outreach / other
+  planningHorizon  String   // Q4  Weekly Sprints / Monthly Goals / 90-Day Quarters
+  workStyle        String   // Q5  Time-Blocking / Flow-based Kanban-list
+  deepWorkHours    Int      // Q6  number
+  bottleneck       String   // Q7  Content / Lead Gen / Task Org / Data Tracking / other
+  toolStack        String[] // Q8  multi-select (Meta Ads, Google Ads, Amazon SP-API, Shopify, …)
+  productivityPeak String   // Q9  Morning / Afternoon / Night
+  tier             Tier     // Q10 Free / Pro
+
+  updatedAt DateTime @updatedAt
+}
+
+// ── Planning primitives ─────────────────────────────────────────────────────
+model Sprint {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  goal        String?
+  startDate   DateTime
+  endDate     DateTime
+
+  blocks Block[]
+  tasks  Task[]
+
+  @@index([workspaceId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  sprintId  String
+  sprint    Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  title     String
+  date      DateTime
+  startTime DateTime
+  endTime   DateTime
+
+  tasks Task[]
+
+  @@index([sprintId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  workspaceId String
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  blockId     String?
+  block       Block?     @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  sprintId    String?
+  sprint      Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  area        String? // e.g. Life / Work / Study / Agency — String for now (see note)
+
+  @@index([workspaceId])
+  @@index([blockId])
+  @@index([sprintId])
+}

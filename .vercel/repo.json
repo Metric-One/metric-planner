@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_GmWG1zA8b48mfKbfto0LdL9Rpdl9",
+      "name": "metric-planner",
+      "directory": ".",
+      "orgId": "team_FipSERDhBdCH3JlxGJnhVYgT"
+    }
+  ]
+}
