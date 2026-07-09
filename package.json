@@ -9,11 +9,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node --env-file=.env server/index.js",
+    "test": "node --env-file=.env --test server/db/tenant.test.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "clsx": "^2.1.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.1",
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
