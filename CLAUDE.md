@@ -192,23 +192,33 @@ Deploy: static Vite build → **Vercel** (frontend-only, per Part 3 layer 5).
 merge to `main` (note: auto-deploy on merge conflicts with the Part-4
 "human-gated deploy" principle — flag for the founder if that gate matters here).
 
-## CURRENT REALITY — module status (updated 2026-07-07, Day 2)
+## CURRENT REALITY — module status (updated 2026-07-08, Day 3)
 
 | Area | Status |
 |---|---|
 | Coming-soon teaser | ✅ done, deployed |
 | Signal v1.0 tokens/fonts | ✅ applied — dark = Navy `#0B1B3A` / Ink `#0A0E17`; Space Grotesk + IBM Plex Sans + IBM Plex Mono |
 | Router (React Router 6) | ✅ `/` Landing, `/onboarding`, `*`→`/` |
-| State (Zustand 5) | ✅ `src/shared/stores/onboardingStore.js` (local only; write flags FALSE) |
-| 10-question onboarding | 🟡 shell only — captured to local state; no plan gen, no persistence |
-| Planner data model | ✅ **migrated** — `prisma/migrations/20260707073707_init_planner`; 5 tables live in Postgres `metric_planner` |
-| `Block.workspaceId` | ✅ **denormalized** (founder-approved), indexed + FK to Workspace |
-| Tenant isolation (`$extends`) | ✅ **wired** — `server/db/tenant.js` `forWorkspace()` throws on any unscoped tenant query (shared primitive) |
-| Sprint/Block/Task UI + drag-drop calendar | ❌ not started (Day 3+, after isolation is proven with a test) |
-| Onboarding backend persistence | ❌ not started (Day 3) |
-| Auth | ❌ none |
-| Backend / API (Express) | ❌ none yet — only `server/db/` (client + tenant guard) exists |
+| State (Zustand 5) | ✅ `src/shared/stores/onboardingStore.js` |
+| Planner data model | ✅ migrated — `prisma/migrations/20260707073707_init_planner`; 5 tables in Postgres `metric_planner` |
+| `Block.workspaceId` | ✅ denormalized (founder-approved), indexed + FK |
+| Tenant isolation (`$extends`) | ✅ **PROVEN** — `server/db/tenant.test.js`, **10/10 pass**. Guard also refuses raw SQL (hole found + fixed Day 3) |
+| **10-question onboarding** | ✅ **PERSISTS** — POST `/api/onboarding` creates Workspace + OnboardingProfile via `forWorkspace()`; GET reads it back |
+| Backend / API (Express 5) | 🟡 minimal — `server/{app,index}.js`, `/api/health`, `/api/onboarding`; rate-limited, allowlist-validated, JSON logs |
+| Sprint/Block/Task UI + drag-drop calendar | ❌ not started (still shell — Day 4+) |
+| Plan generation from answers | ❌ not started (no spec — ask founder) |
+| Auth | ❌ **none — `/api/onboarding` is UNAUTHENTICATED.** `ownerUserId` is minted server-side as `anon_<uuid>`. Must be behind a real session before any public deploy. |
 | Is any of this V1-blocking? | ❓ open founder decision — Part 2 does not list the planner as V1 |
+
+### What is persistable vs still shell (Day 3)
+- **Persistable now:** the 10 onboarding answers → a real `Workspace` + `OnboardingProfile` row in Postgres, written and read back through the tenant-scoped client. Labels are mapped to enums (`Solo Founder`→`SOLO_FOUNDER`, `Trial Pro`→`PRO`) at the validation boundary.
+- **Still shell:** everything else. `Sprint` / `Block` / `Task` tables exist and are guarded, but nothing creates or edits them — no sprint board, no calendar, no drag-drop, no plan generation. Their write flags are `false` in `server/lib/flags.js`.
+
+### Day 3 log — 2026-07-08
+- **Security proof:** `server/db/tenant.test.js` (node:test, no new deps) — A cannot read/mutate B's Sprint/Block/Task; bare `findMany()` stays scoped; cross-tenant `create` throws; by-PK ops throw. **10/10 pass.**
+- **Hole found & fixed:** `$queryRawUnsafe` bypassed `$allModels` entirely and returned another tenant's rows. The scoped client now refuses all four raw methods.
+- **First approved write:** `POST /api/onboarding` (rate-limited 10/15min, strict allowlist validation, unknown fields rejected, JSON error logs) + `GET /api/onboarding/:workspaceId` read-back. Write flags live in `server/lib/flags.js` — only `onboarding: true`.
+- **Run it:** `corepack pnpm server` (:4001) alongside `corepack pnpm dev` (:5175, `/api` proxied).
 
 ### DB / backend facts (Day 2)
 - **Postgres:** reuses the shared `metrics_postgres` container (superuser `metrics`), separate database **`metric_planner`**. Local `DATABASE_URL` lives in `.env` (gitignored); `.env.example` carries a placeholder.

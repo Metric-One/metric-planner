@@ -40,6 +40,16 @@ function whereHasKey(where, key, value) {
   return false
 }
 
+// Raw SQL never reaches the $allModels query hook, so a scoped client MUST
+// refuse it outright — otherwise `$queryRawUnsafe('SELECT * FROM "Sprint"')`
+// silently reads every tenant. (Caught by tenant.test.js.)
+const rawBlocked = (name) => () => {
+  throw new TenantIsolationError(
+    `${name} is forbidden on a workspace-scoped client — raw SQL bypasses tenant filtering. ` +
+    `Use the model API, or the base prisma client behind an explicit workspace check.`
+  )
+}
+
 export function forWorkspace(workspaceId) {
   if (typeof workspaceId !== 'string' || workspaceId.length === 0) {
     throw new TenantIsolationError('forWorkspace(workspaceId): a non-empty workspaceId is required')
@@ -47,6 +57,12 @@ export function forWorkspace(workspaceId) {
 
   return prisma.$extends({
     name: 'tenant-isolation',
+    client: {
+      $queryRaw: rawBlocked('$queryRaw'),
+      $queryRawUnsafe: rawBlocked('$queryRawUnsafe'),
+      $executeRaw: rawBlocked('$executeRaw'),
+      $executeRawUnsafe: rawBlocked('$executeRawUnsafe')
+    },
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
