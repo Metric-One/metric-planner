@@ -12,6 +12,10 @@ export default function Onboarding() {
   const step = useOnboardingStore((s) => s.step)
   const answers = useOnboardingStore((s) => s.answers)
   const completed = useOnboardingStore((s) => s.completed)
+  const workspaceId = useOnboardingStore((s) => s.workspaceId)
+  const profile = useOnboardingStore((s) => s.profile)
+  const saving = useOnboardingStore((s) => s.saving)
+  const error = useOnboardingStore((s) => s.error)
   const setAnswer = useOnboardingStore((s) => s.setAnswer)
   const toggleMulti = useOnboardingStore((s) => s.toggleMulti)
   const next = useOnboardingStore((s) => s.next)
@@ -33,11 +37,32 @@ export default function Onboarding() {
         <div className="animate-fadeUp">
           <Logo className="justify-center" />
           <div className="glass mx-auto mt-8 max-w-md p-8">
-            <span className="grid h-11 w-11 place-items-center rounded-xl icon-grad mx-auto"><Check size={20} /></span>
-            <h1 className="mt-5 font-display text-2xl font-semibold tracking-tight">Answers captured</h1>
-            <p className="mt-2 text-sm text-fg-muted">
-              Saved to local state only — no backend yet. Plan generation and
-              persistence land once the schema is approved.
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl icon-grad"><Check size={20} /></span>
+            <h1 className="mt-5 font-display text-2xl font-semibold tracking-tight">Workspace created</h1>
+            {workspaceId && (
+              <p className="mt-2 break-all font-mono text-2xs text-fg-subtle">workspace {workspaceId}</p>
+            )}
+            {/* Read-back: what the database actually stored. */}
+            {profile && (
+              <dl className="mt-5 space-y-1.5 text-left text-sm">
+                {[
+                  ['Role', profile.role],
+                  ['North Star', profile.northStar],
+                  ['Horizon', profile.planningHorizon],
+                  ['Deep work', `${profile.deepWorkHours} h/wk`],
+                  ['Tools', profile.toolStack.join(', ')],
+                  ['Tier', profile.tier]
+                ].map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-4 border-b border-line pb-1.5">
+                    <dt className="text-fg-subtle">{k}</dt>
+                    <dd className="text-right font-medium">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            <p className="mt-4 text-sm text-fg-muted">
+              Saved and read back from Postgres. Plan generation and the sprint
+              board are not built yet.
             </p>
             <div className="mt-6 flex justify-center gap-3">
               <button onClick={reset} className="h-10 rounded-xl border border-line bg-surface-2 px-4 text-sm font-medium text-fg transition hover:text-primary focus-ring">Start over</button>
@@ -96,19 +121,25 @@ export default function Onboarding() {
             )}
           </div>
 
+          {error && (
+            <p role="alert" className="mt-5 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-loss">
+              {error}
+            </p>
+          )}
+
           <div className="mt-8 flex items-center justify-between">
             <button
-              onClick={back} disabled={step === 0}
+              onClick={back} disabled={step === 0 || saving}
               className="inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-fg-muted transition hover:text-fg disabled:opacity-40 focus-ring"
             >
               <ArrowLeft size={16} /> Back
             </button>
             {isLast ? (
               <button
-                onClick={finish} disabled={!answered}
+                onClick={finish} disabled={!answered || saving}
                 className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-5 text-sm font-medium text-on-primary transition hover:opacity-90 disabled:opacity-40 focus-ring"
               >
-                Finish <Check size={16} />
+                {saving ? 'Saving…' : 'Finish'} <Check size={16} />
               </button>
             ) : (
               <button
